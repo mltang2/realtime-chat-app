@@ -43,10 +43,66 @@ export const signup = async(req, res) => {
     }
 };
 
-export const login = (req, res) => {
-    res.send("login route");
+export const login = async (req, res) => {
+    const {email, password} = req.body
+try {
+    const user = await User.findOne({email});
+
+    if (!user) {
+        return res.status(400).json({message:"Invalid credentials"});
+    }
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+        return res.status(400).json({message: "Invalid credentials"});
+    }
+
+    generateToken(user._id, res)
+
+    res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        profilePicture: user.profilePicture,
+    })
+} catch (error) {
+    console.log("Error in login controller", error.message);
+    res.status(500).json({ message: "Internal Server Error"});
+    }
 };
 
 export const logout = (req, res) => {
-    res.send("logout route");
+    try {
+        res.cookie("jwt", "", {maxAge: 0});
+        res.status(200).json({ message: "Logged out successfully"});
+    } catch (error) {
+        console.log("Error in login controller", error.message);
+        res.status(500).json({ message: "Internal Server Error"});
+    }
+};
+
+export const updateProfile = async (req, res) => {
+    try {
+        const {profilePicture} = req.body;
+        const userId = req.user._id;
+        if (!profilePic) {
+            return res.status(400).json({message: "Profile picture is required"});
+        }
+
+        const uploadResponse = await cloudinary .uploader.upload(profilePicture);
+        const updatedUser = await User.findByIdAndUpdate(userId, {profilePicture:uploadResponse.secure_url}, {new:true});
+        res.status(200).json(updatedUser)
+    } catch (error) {
+        console.log("error in update profile:", error);
+        res.status(500).json({ message: "Internal Server error"});
+
+    }
+}
+
+export const checkAuth = (req, res) => {
+    try {
+        res.status(200).json(req.user);
+    } catch (error) {
+        console.log("error in checkAuth controller", error.message);
+        res.status(500).json({ message: "Internal Server Error"});
+    }
 };
